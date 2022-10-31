@@ -407,9 +407,16 @@ impl CurrentMarketplaceListing {
             || event_type.contains("Buy")
             || event_type.contains("Sell")
             || event_type.contains("Change")
+            || event_type.contains("CancelList")
+            || event_type.contains("Fill")
+            || event_type.contains("Send")
+            || event_type.contains("Auction")
         {
             // market address is "0xd1fd99c1944b84d1670a2536417e997864ad12303d19eac725891691b04d614e" for blue/bluemove, "0x2c7bccf7b31baf770fdbcc768d9e9cb3d87805e255355df5db32ac9a669010a2" for topaz, and "0xf6994988bd40261af9431cd6dd3fcf765569719e66322c7a05cc78a89cd366d4" for souffl3
-            let market_address = event_type.split("::").next().unwrap();
+            let mut market_address = event_type.split("::").next().unwrap(); //
+            if !(event_type.contains("List") || event_type.contains("Auction")) || event_type.contains("CancelList") {
+                market_address = "";
+            } 
             let token_data_id_hash = token_data_id.to_hash();
             let creator_address = token_data_id.creator.clone();
             let collection_name = token_data_id.collection.clone();
