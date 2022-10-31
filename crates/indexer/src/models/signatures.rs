@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 #![allow(clippy::extra_unused_lifetimes)]
 
-use crate::{models::transactions::Transaction, schema::signatures, util::standardize_address};
+use crate::{models::transactions::Transaction, schema::signatures};
 use anyhow::{Context, Result};
 use aptos_api_types::{
     AccountSignature as APIAccountSignature, Ed25519Signature as APIEd25519Signature,
@@ -98,11 +98,11 @@ impl Signature {
         multi_agent_index: i64,
         override_address: Option<&String>,
     ) -> Self {
-        let signer = standardize_address(override_address.unwrap_or(sender));
+        let signer = override_address.unwrap_or(sender);
         Self {
             transaction_version,
             transaction_block_height,
-            signer,
+            signer: signer.clone(),
             is_sender_primary,
             type_: String::from("ed25519_signature"),
             public_key: s.public_key.to_string(),
@@ -124,8 +124,10 @@ impl Signature {
         override_address: Option<&String>,
     ) -> Vec<Self> {
         let mut signatures = Vec::default();
-        let signer = standardize_address(override_address.unwrap_or(sender));
-
+        let mut signer = sender;
+        if let Some(addr) = override_address {
+            signer = addr;
+        }
         let public_key_indices: Vec<usize> = BitVec::from(s.bitmap.0.clone()).iter_ones().collect();
         for (index, signature) in s.signatures.iter().enumerate() {
             let public_key = s

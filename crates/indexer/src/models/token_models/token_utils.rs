@@ -25,8 +25,8 @@ pub struct Table {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TokenDataIdType {
     pub creator: String,
-    collection: String,
-    name: String,
+    pub collection: String,
+    pub name: String,
 }
 
 impl TokenDataIdType {
@@ -44,6 +44,10 @@ impl TokenDataIdType {
 
     pub fn get_collection_data_id_hash(&self) -> String {
         CollectionDataIdType::new(self.creator.clone(), self.collection.clone()).to_hash()
+    }
+
+    pub fn get_creator_address(&self) -> String {
+        self.creator.clone()
     }
 }
 
@@ -270,6 +274,260 @@ pub struct ClaimTokenEventType {
     pub to_address: String,
     pub token_id: TokenIdType,
 }
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct BlueMoveAuctionEventType {
+    pub id: TokenIdType,
+    #[serde(deserialize_with = "deserialize_from_string")]
+    pub min_selling_price: BigDecimal,
+    #[serde(deserialize_with = "deserialize_from_string")]
+    pub duration: BigDecimal,
+    #[serde(deserialize_with = "deserialize_from_string")]
+    pub start_time: BigDecimal,
+    pub owner_address: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct BlueBidEventType {
+    pub id: TokenIdType,
+    #[serde(deserialize_with = "deserialize_from_string")]
+    pub bid: BigDecimal,
+    pub bider_address: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct BlueBuyEventType {
+    pub id: TokenIdType,
+    pub buyer_address: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct BlueChangePriceEventType {
+    pub id: TokenIdType,
+    #[serde(deserialize_with = "deserialize_from_string")]
+    pub amount: BigDecimal,
+    pub seller_address: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct BlueClaimCoinsEventType {
+    pub id: TokenIdType,
+    pub owner_token: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct BlueClaimTokenEventType {
+    pub id: TokenIdType,
+    pub bider_address: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct BlueDelistEventType {
+    pub id: TokenIdType,
+    pub seller_address: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct BlueListEventType {
+    pub id: TokenIdType,
+    #[serde(deserialize_with = "deserialize_from_string")]
+    pub amount: BigDecimal,
+    pub seller_address: String,
+    pub royalty_payee: String,
+    #[serde(deserialize_with = "deserialize_from_string")]
+    pub royalty_numerator: BigDecimal,
+    #[serde(deserialize_with = "deserialize_from_string")]
+    pub royalty_denominator: BigDecimal,
+}
+ 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct TopazBidEventType {
+    #[serde(deserialize_with = "deserialize_from_string")]
+    pub timestamp: BigDecimal,
+    #[serde(deserialize_with = "deserialize_from_string")]
+    pub bid_id: BigDecimal,
+    pub token_id: TokenIdType,
+    #[serde(deserialize_with = "deserialize_from_string")]
+    pub deadline: BigDecimal,
+    #[serde(deserialize_with = "deserialize_from_string")]
+    pub price: BigDecimal,
+    pub coin_type: TypeInfo,
+    #[serde(deserialize_with = "deserialize_from_string")]
+    pub amount: BigDecimal,
+    pub buyer: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct TopazBuyEventType {
+    #[serde(deserialize_with = "deserialize_from_string")]
+    pub timestamp: BigDecimal,
+    #[serde(deserialize_with = "deserialize_from_string")]
+    pub listing_id: BigDecimal,
+    pub token_id: TokenIdType,
+    #[serde(deserialize_with = "deserialize_from_string")]
+    pub price: BigDecimal,
+    #[serde(deserialize_with = "deserialize_from_string")]
+    pub amount: BigDecimal,
+    pub seller: String,
+    pub buyer: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct TopazCancelBidEventType {
+    #[serde(deserialize_with = "deserialize_from_string")]
+    pub timestamp: BigDecimal,
+    #[serde(deserialize_with = "deserialize_from_string")]
+    pub bid_id: BigDecimal,
+    pub token_id: TokenIdType,
+    #[serde(deserialize_with = "deserialize_from_string")]
+    pub deadline: BigDecimal,
+    #[serde(deserialize_with = "deserialize_from_string")]
+    pub price: BigDecimal,
+    pub coin_type: TypeInfo,
+    #[serde(deserialize_with = "deserialize_from_string")]
+    pub amount: BigDecimal,
+    pub buyer: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct TopazCancelCollectionBidEventType {
+    #[serde(deserialize_with = "deserialize_from_string")]
+    pub timestamp: BigDecimal,
+    #[serde(deserialize_with = "deserialize_from_string")]
+    pub bid_id: BigDecimal,
+    pub creator: String,
+    pub collection_name: String,
+    pub buyer: String,
+    #[serde(deserialize_with = "deserialize_from_string")]
+    pub price: BigDecimal,
+    pub coin_type: TypeInfo,
+    #[serde(deserialize_with = "deserialize_from_string")]
+    pub amount: BigDecimal,
+    #[serde(deserialize_with = "deserialize_from_string")]
+    pub deadline: BigDecimal,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct TopazClaimEventType {
+    #[serde(deserialize_with = "deserialize_from_string")]
+    pub timestamp: BigDecimal,
+    pub token_id: TokenIdType,
+    pub receiver: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct TopazCollectionBidEventType {
+    #[serde(deserialize_with = "deserialize_from_string")]
+    pub timestamp: BigDecimal,
+    #[serde(deserialize_with = "deserialize_from_string")]
+    pub bid_id: BigDecimal,
+    pub creator: String,
+    pub collection_name: String,
+    pub buyer: String,
+    #[serde(deserialize_with = "deserialize_from_string")]
+    pub price: BigDecimal,
+    pub coin_type: TypeInfo,
+    #[serde(deserialize_with = "deserialize_from_string")]
+    pub amount: BigDecimal,
+    #[serde(deserialize_with = "deserialize_from_string")]
+    pub deadline: BigDecimal,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct TopazDelistEventType {
+    #[serde(deserialize_with = "deserialize_from_string")]
+    pub timestamp: BigDecimal,
+    #[serde(deserialize_with = "deserialize_from_string")]
+    pub listing_id: BigDecimal,
+    pub token_id: TokenIdType,
+    #[serde(deserialize_with = "deserialize_from_string")]
+    pub price: BigDecimal,
+    #[serde(deserialize_with = "deserialize_from_string")]
+    pub amount: BigDecimal,
+    pub seller: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct TopazListEventType {
+    #[serde(deserialize_with = "deserialize_from_string")]
+    pub timestamp: BigDecimal,
+    #[serde(deserialize_with = "deserialize_from_string")]
+    pub listing_id: BigDecimal,
+    pub token_id: TokenIdType,
+    #[serde(deserialize_with = "deserialize_from_string")]
+    pub price: BigDecimal,
+    #[serde(deserialize_with = "deserialize_from_string")]
+    pub amount: BigDecimal,
+    pub seller: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct TopazSellEventType {
+    #[serde(deserialize_with = "deserialize_from_string")]
+    pub timestamp: BigDecimal,
+    #[serde(deserialize_with = "deserialize_from_string")]
+    pub bid_id: BigDecimal,
+    pub token_id: TokenIdType,
+    #[serde(deserialize_with = "deserialize_from_string")]
+    pub deadline: BigDecimal,
+    #[serde(deserialize_with = "deserialize_from_string")]
+    pub price: BigDecimal,
+    pub coin_type: TypeInfo,
+    #[serde(deserialize_with = "deserialize_from_string")]
+    pub amount: BigDecimal,
+    pub buyer: String,
+    pub seller: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct TopazSendEventType {
+    #[serde(deserialize_with = "deserialize_from_string")]
+    pub timestamp: BigDecimal,
+    pub token_id: TokenIdType,
+    #[serde(deserialize_with = "deserialize_from_string")]
+    pub amount: BigDecimal,
+    pub sender: String,
+    pub receiver: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Souffl3BuyTokenEventType {
+    pub id: Souffl3MarketIdType,
+    pub token_id: TokenIdType,
+    #[serde(deserialize_with = "deserialize_from_string")]
+    pub token_amount: BigDecimal,
+    pub buyer: String,
+    pub token_owner: String,
+    #[serde(deserialize_with = "deserialize_from_string")]
+    pub coin_per_token: BigDecimal,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Souffl3CancelListTokenEventType {
+    pub id: Souffl3MarketIdType,
+    pub token_id: TokenIdType,
+    #[serde(deserialize_with = "deserialize_from_string")]
+    pub token_amount: BigDecimal,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Souffl3ListTokenEventType {
+    pub id: Souffl3MarketIdType,
+    pub token_id: TokenIdType,
+    pub token_owner: String,
+    #[serde(deserialize_with = "deserialize_from_string")]
+    pub token_amount: BigDecimal,
+    #[serde(deserialize_with = "deserialize_from_string")]
+    pub coin_per_token: BigDecimal,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Souffl3MarketIdType {
+    pub market_address: String,
+    pub name: String,
+}
+
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TypeInfo {
     pub account_address: String,
@@ -338,6 +596,27 @@ pub enum TokenEvent {
     OfferTokenEvent(OfferTokenEventType),
     CancelTokenOfferEvent(CancelTokenOfferEventType),
     ClaimTokenEvent(ClaimTokenEventType),
+    BlueMoveAuctionEvent(BlueMoveAuctionEventType),
+    BlueBidEvent(BlueBidEventType),
+    BlueBuyEvent(BlueBuyEventType),
+    BlueChangePriceEvent(BlueChangePriceEventType),
+    BlueClaimCoinsEvent(BlueClaimCoinsEventType),
+    BlueClaimTokenEvent(BlueClaimTokenEventType),
+    BlueDelistEvent(BlueDelistEventType),
+    BlueListEvent(BlueListEventType),
+    TopazBidEvent(TopazBidEventType),
+    TopazBuyEvent(TopazBuyEventType),
+    TopazCancelBidEvent(TopazCancelBidEventType),
+    TopazCancelCollectionBidEvent(TopazCancelCollectionBidEventType),
+    TopazClaimEvent(TopazClaimEventType),
+    TopazCollectionBidEvent(TopazCollectionBidEventType),
+    TopazDelistEvent(TopazDelistEventType),
+    TopazListEvent(TopazListEventType),
+    TopazSellEvent(TopazSellEventType),
+    TopazSendEvent(TopazSendEventType),
+    Souffl3BuyTokenEvent(Souffl3BuyTokenEventType),
+    Souffl3CancelListTokenEvent(Souffl3CancelListTokenEventType),
+    Souffl3ListTokenEvent(Souffl3ListTokenEventType),
 }
 
 impl TokenEvent {
@@ -363,6 +642,92 @@ impl TokenEvent {
                 .map(|inner| Some(TokenEvent::CancelTokenOfferEvent(inner))),
             "0x3::token_transfers::TokenClaimEvent" => serde_json::from_value(data.clone())
                 .map(|inner| Some(TokenEvent::ClaimTokenEvent(inner))),
+            "0x3::token_transfers::TokenClaimEvent" => serde_json::from_value(data.clone())
+                .map(|inner| Some(TokenEvent::ClaimTokenEvent(inner))),
+            "0xd1fd99c1944b84d1670a2536417e997864ad12303d19eac725891691b04d614e::marketplaceV2::AuctionEvent" => {
+                serde_json::from_value(data.clone())
+                    .map(|inner| Some(TokenEvent::BlueMoveAuctionEvent(inner)))
+            },
+            "0xd1fd99c1944b84d1670a2536417e997864ad12303d19eac725891691b04d614e::marketplaceV2::BidEvent" => {
+                serde_json::from_value(data.clone())
+                    .map(|inner| Some(TokenEvent::BlueBidEvent(inner)))
+            },
+            "0xd1fd99c1944b84d1670a2536417e997864ad12303d19eac725891691b04d614e::marketplaceV2::BuyEvent" => {
+                serde_json::from_value(data.clone())
+                    .map(|inner| Some(TokenEvent::BlueBuyEvent(inner)))
+            },
+            "0xd1fd99c1944b84d1670a2536417e997864ad12303d19eac725891691b04d614e::marketplaceV2::ChangePriceEvent" => {
+                serde_json::from_value(data.clone())
+                    .map(|inner| Some(TokenEvent::BlueChangePriceEvent(inner)))
+            },
+            "0xd1fd99c1944b84d1670a2536417e997864ad12303d19eac725891691b04d614e::marketplaceV2::ClaimCoinsEvent" => {
+                serde_json::from_value(data.clone())
+                    .map(|inner| Some(TokenEvent::BlueClaimCoinsEvent(inner)))
+            },
+            "0xd1fd99c1944b84d1670a2536417e997864ad12303d19eac725891691b04d614e::marketplaceV2::ClaimTokenEvent" => {
+                serde_json::from_value(data.clone())
+                    .map(|inner| Some(TokenEvent::BlueClaimTokenEvent(inner)))
+            },
+            "0xd1fd99c1944b84d1670a2536417e997864ad12303d19eac725891691b04d614e::marketplaceV2::DelistEvent" => {
+                serde_json::from_value(data.clone())
+                    .map(|inner| Some(TokenEvent::BlueDelistEvent(inner)))
+            },
+            "0xd1fd99c1944b84d1670a2536417e997864ad12303d19eac725891691b04d614e::marketplaceV2::ListEvent" => {
+                serde_json::from_value(data.clone())
+                    .map(|inner| Some(TokenEvent::BlueListEvent(inner)))
+            },
+            "0x2c7bccf7b31baf770fdbcc768d9e9cb3d87805e255355df5db32ac9a669010a2::events::BidEvent" => {
+                serde_json::from_value(data.clone())
+                    .map(|inner| Some(TokenEvent::TopazBidEvent(inner)))
+            },
+            "0x2c7bccf7b31baf770fdbcc768d9e9cb3d87805e255355df5db32ac9a669010a2::events::BuyEvent" => {
+                serde_json::from_value(data.clone())
+                    .map(|inner| Some(TokenEvent::TopazBuyEvent(inner)))
+            },
+            "0x2c7bccf7b31baf770fdbcc768d9e9cb3d87805e255355df5db32ac9a669010a2::events::CancelBidEvent" => {
+                serde_json::from_value(data.clone())
+                    .map(|inner| Some(TokenEvent::TopazCancelBidEvent(inner)))
+            },
+            "0x2c7bccf7b31baf770fdbcc768d9e9cb3d87805e255355df5db32ac9a669010a2::events::CancelCollectionBidEvent" => {
+                serde_json::from_value(data.clone())
+                    .map(|inner| Some(TokenEvent::TopazCancelCollectionBidEvent(inner)))
+            },
+            "0x2c7bccf7b31baf770fdbcc768d9e9cb3d87805e255355df5db32ac9a669010a2::events::ClaimEvent" => {
+                serde_json::from_value(data.clone())
+                    .map(|inner| Some(TokenEvent::TopazClaimEvent(inner)))
+            },
+            "0x2c7bccf7b31baf770fdbcc768d9e9cb3d87805e255355df5db32ac9a669010a2::events::CollectionBidEvent" => {
+                serde_json::from_value(data.clone())
+                    .map(|inner| Some(TokenEvent::TopazCollectionBidEvent(inner)))
+            },
+            "0x2c7bccf7b31baf770fdbcc768d9e9cb3d87805e255355df5db32ac9a669010a2::events::DelistEvent" => {
+                serde_json::from_value(data.clone())
+                    .map(|inner| Some(TokenEvent::TopazDelistEvent(inner)))
+            },
+            "0x2c7bccf7b31baf770fdbcc768d9e9cb3d87805e255355df5db32ac9a669010a2::events::ListEvent" => {
+                serde_json::from_value(data.clone())
+                    .map(|inner| Some(TokenEvent::TopazListEvent(inner)))
+            },
+            "0x2c7bccf7b31baf770fdbcc768d9e9cb3d87805e255355df5db32ac9a669010a2::events::SellEvent" => {
+                serde_json::from_value(data.clone())
+                    .map(|inner| Some(TokenEvent::TopazSellEvent(inner)))
+            },
+            "0x2c7bccf7b31baf770fdbcc768d9e9cb3d87805e255355df5db32ac9a669010a2::events::SendEvent" => {
+                serde_json::from_value(data.clone())
+                    .map(|inner| Some(TokenEvent::TopazSendEvent(inner)))
+            },
+            "0xf6994988bd40261af9431cd6dd3fcf765569719e66322c7a05cc78a89cd366d4::FixedPriceMarket::BuyTokenEvent" => {
+                serde_json::from_value(data.clone())
+                    .map(|inner| Some(TokenEvent::Souffl3BuyTokenEvent(inner)))
+            },
+            "0xf6994988bd40261af9431cd6dd3fcf765569719e66322c7a05cc78a89cd366d4::FixedPriceMarket::CancelListTokenEvent" => {
+                serde_json::from_value(data.clone())
+                    .map(|inner| Some(TokenEvent::Souffl3CancelListTokenEvent(inner)))
+            },
+            "0xf6994988bd40261af9431cd6dd3fcf765569719e66322c7a05cc78a89cd366d4::FixedPriceMarket::ListTokenEvent" => {
+                serde_json::from_value(data.clone())
+                    .map(|inner| Some(TokenEvent::Souffl3ListTokenEvent(inner)))
+            },
             _ => Ok(None),
         }
         .context(format!(

@@ -16,7 +16,7 @@ use crate::{
     database::PgPoolConnection,
     models::move_resources::MoveResource,
     schema::tokens,
-    util::{ensure_not_negative, parse_timestamp, standardize_address},
+    util::{ensure_not_negative, parse_timestamp},
 };
 use aptos_api_types::{
     DeleteTableItem as APIDeleteTableItem, Transaction as APITransaction,
@@ -69,7 +69,6 @@ impl Token {
     /// state at the last transaction will be tracked, hence using hashmap to dedupe)
     pub fn from_transaction(
         transaction: &APITransaction,
-        table_handle_to_owner: &TableHandleToOwner,
         conn: &mut PgPoolConnection,
     ) -> (
         Vec<Self>,
@@ -102,6 +101,21 @@ impl Token {
 
             let txn_version = user_txn.info.version.0 as i64;
             let txn_timestamp = parse_timestamp(user_txn.timestamp.0, txn_version);
+            let mut table_handle_to_owner: TableHandleToOwner = HashMap::new();
+            for wsc in &user_txn.info.changes {
+                if let APIWriteSetChange::WriteResource(write_resource) = wsc {
+                    let maybe_map = TableMetadataForToken::get_table_handle_to_owner(
+                        write_resource,
+                        txn_version,
+                    )
+                    .unwrap();
+                    if let Some(map) = maybe_map {
+                        table_handle_to_owner.extend(map);
+                    }
+                }
+            }
+
+            // if events contains a listing, we overwrite listed fields, and when delisting, buy, sell, fill, we delete the fields (overwrite w null)
 
             for wsc in &user_txn.info.changes {
                 // Basic token and ownership data
@@ -111,7 +125,7 @@ impl Token {
                             write_table_item,
                             txn_version,
                             txn_timestamp,
-                            table_handle_to_owner,
+                            &table_handle_to_owner,
                         )
                         .unwrap(),
                         TokenData::from_write_table_item(
@@ -124,7 +138,7 @@ impl Token {
                             write_table_item,
                             txn_version,
                             txn_timestamp,
-                            table_handle_to_owner,
+                            &table_handle_to_owner,
                             conn,
                         )
                         .unwrap(),
@@ -134,7 +148,7 @@ impl Token {
                             delete_table_item,
                             txn_version,
                             txn_timestamp,
-                            table_handle_to_owner,
+                            &table_handle_to_owner,
                         )
                         .unwrap(),
                         None,
@@ -149,7 +163,7 @@ impl Token {
                             write_table_item,
                             txn_version,
                             txn_timestamp,
-                            table_handle_to_owner,
+                            &table_handle_to_owner,
                         )
                         .unwrap()
                     }
@@ -158,14 +172,14 @@ impl Token {
                             delete_table_item,
                             txn_version,
                             txn_timestamp,
-                            table_handle_to_owner,
+                            &table_handle_to_owner,
                         )
                         .unwrap()
                     }
                     _ => None,
                 };
 
-                if let Some((token, maybe_token_ownership, maybe_current_token_ownership)) =
+                if let Some((token, token_ownership, maybe_current_token_ownership)) =
                     maybe_token_w_ownership
                 {
                     tokens.insert(
@@ -175,9 +189,7 @@ impl Token {
                         ),
                         token,
                     );
-                    if let Some(token_ownership) = maybe_token_ownership {
-                        token_ownerships.push(token_ownership);
-                    }
+                    token_ownerships.push(token_ownership);
                     if let Some(current_token_ownership) = maybe_current_token_ownership {
                         current_token_ownerships.insert(
                             (
@@ -237,7 +249,7 @@ impl Token {
         txn_version: i64,
         txn_timestamp: chrono::NaiveDateTime,
         table_handle_to_owner: &TableHandleToOwner,
-    ) -> anyhow::Result<Option<(Self, Option<TokenOwnership>, Option<CurrentTokenOwnership>)>> {
+    ) -> anyhow::Result<Option<(Self, TokenOwnership, Option<CurrentTokenOwnership>)>> {
         let table_item_data = table_item.data.as_ref().unwrap();
 
         let maybe_token = match TokenWriteSet::from_table_item_type(
@@ -260,7 +272,7 @@ impl Token {
             let token_pg = Self {
                 collection_data_id_hash,
                 token_data_id_hash,
-                creator_address: standardize_address(&token_data_id.creator),
+                creator_address: token_data_id.creator,
                 collection_name,
                 name,
                 property_version: token_id.property_version,
@@ -271,16 +283,11 @@ impl Token {
 
             let (token_ownership, current_token_ownership) = TokenOwnership::from_token(
                 &token_pg,
-                table_item_data.key_type.as_str(),
-                &table_item_data.key,
                 ensure_not_negative(token.amount),
                 table_item.handle.to_string(),
                 table_handle_to_owner,
-            )?
-            .map(|(token_ownership, current_token_ownership)| {
-                (Some(token_ownership), current_token_ownership)
-            })
-            .unwrap_or((None, None));
+                Some(table_item_data.value_type.as_str()),
+            );
 
             Ok(Some((token_pg, token_ownership, current_token_ownership)))
         } else {
@@ -295,7 +302,7 @@ impl Token {
         txn_version: i64,
         txn_timestamp: chrono::NaiveDateTime,
         table_handle_to_owner: &TableHandleToOwner,
-    ) -> anyhow::Result<Option<(Self, Option<TokenOwnership>, Option<CurrentTokenOwnership>)>> {
+    ) -> anyhow::Result<Option<(Self, TokenOwnership, Option<CurrentTokenOwnership>)>> {
         let table_item_data = table_item.data.as_ref().unwrap();
 
         let maybe_token_id = match TokenWriteSet::from_table_item_type(
@@ -317,7 +324,7 @@ impl Token {
             let token = Self {
                 collection_data_id_hash,
                 token_data_id_hash,
-                creator_address: standardize_address(&token_data_id.creator),
+                creator_address: token_data_id.creator,
                 collection_name,
                 name,
                 property_version: token_id.property_version,
@@ -327,16 +334,11 @@ impl Token {
             };
             let (token_ownership, current_token_ownership) = TokenOwnership::from_token(
                 &token,
-                table_item_data.key_type.as_str(),
-                &table_item_data.key,
                 BigDecimal::zero(),
                 table_item.handle.to_string(),
                 table_handle_to_owner,
-            )?
-            .map(|(token_ownership, current_token_ownership)| {
-                (Some(token_ownership), current_token_ownership)
-            })
-            .unwrap_or((None, None));
+                None,
+            );
             Ok(Some((token, token_ownership, current_token_ownership)))
         } else {
             Ok(None)
@@ -345,32 +347,6 @@ impl Token {
 }
 
 impl TableMetadataForToken {
-    /// Mapping from table handle to owner type, including type of the table (AKA resource type)
-    /// from user transactions in a batch of transactions
-    pub fn get_table_handle_to_owner_from_transactions(
-        transactions: &[APITransaction],
-    ) -> TableHandleToOwner {
-        let mut table_handle_to_owner: TableHandleToOwner = HashMap::new();
-        // Do a first pass to get all the table metadata in the batch.
-        for transaction in transactions {
-            if let APITransaction::UserTransaction(user_txn) = transaction {
-                let txn_version = user_txn.info.version.0 as i64;
-                for wsc in &user_txn.info.changes {
-                    if let APIWriteSetChange::WriteResource(write_resource) = wsc {
-                        let maybe_map = TableMetadataForToken::get_table_handle_to_owner(
-                            write_resource,
-                            txn_version,
-                        )
-                        .unwrap();
-                        if let Some(map) = maybe_map {
-                            table_handle_to_owner.extend(map);
-                        }
-                    }
-                }
-            }
-        }
-        table_handle_to_owner
-    }
     /// Mapping from table handle to owner type, including type of the table (AKA resource type)
     fn get_table_handle_to_owner(
         write_resource: &APIWriteResource,
@@ -393,7 +369,7 @@ impl TableMetadataForToken {
         );
 
         let value = TableMetadataForToken {
-            owner_address: standardize_address(&resource.address),
+            owner_address: resource.address,
             table_type: write_resource.data.typ.to_string(),
         };
         let table_handle: TableHandle = match TokenResource::from_resource(
@@ -408,8 +384,13 @@ impl TableMetadataForToken {
             TokenResource::PendingClaimsResource(inner) => inner.pending_claims.handle,
         };
         Ok(Some(HashMap::from([(
-            standardize_address(&table_handle),
+            Self::standardize_handle(&table_handle),
             value,
         )])))
+    }
+
+    /// Removes leading 0s after 0x in a table to standardize between resources and table items
+    pub fn standardize_handle(handle: &str) -> String {
+        format!("0x{}", &handle[2..].trim_start_matches('0'))
     }
 }

@@ -16,10 +16,8 @@ use crate::{
         token_claims::CurrentTokenPendingClaim,
         token_datas::{CurrentTokenData, TokenData},
         token_ownerships::{CurrentTokenOwnership, TokenOwnership},
-        tokens::{
-            CurrentTokenOwnershipPK, CurrentTokenPendingClaimPK, TableMetadataForToken, Token,
-            TokenDataIdHash,
-        },
+        tokens::{CurrentTokenOwnershipPK, CurrentTokenPendingClaimPK, Token, TokenDataIdHash},
+        marketplace_listings::{CurrentMarketplaceListing}
     },
     schema,
 };
@@ -70,6 +68,7 @@ fn insert_to_db_impl(
     token_activities: &[TokenActivity],
     current_token_claims: &[CurrentTokenPendingClaim],
     current_ans_lookups: &[CurrentAnsLookup],
+    all_current_marketplace_listings: &[CurrentMarketplaceListing]
 ) -> Result<(), diesel::result::Error> {
     let (tokens, token_ownerships, token_datas, collection_datas) = basic_token_transaction_lists;
     let (current_token_ownerships, current_token_datas, current_collection_datas) =
@@ -84,6 +83,7 @@ fn insert_to_db_impl(
     insert_token_activities(conn, token_activities)?;
     insert_current_token_claims(conn, current_token_claims)?;
     insert_current_ans_lookups(conn, current_ans_lookups)?;
+    insert_current_marketplace_listings(conn, all_current_marketplace_listings)?;
     Ok(())
 }
 
@@ -106,6 +106,7 @@ fn insert_to_db(
     token_activities: Vec<TokenActivity>,
     current_token_claims: Vec<CurrentTokenPendingClaim>,
     current_ans_lookups: Vec<CurrentAnsLookup>,
+    current_marketplace_listings: Vec<CurrentMarketplaceListing>
 ) -> Result<(), diesel::result::Error> {
     aptos_logger::trace!(
         name = name,
@@ -131,6 +132,7 @@ fn insert_to_db(
                 &token_activities,
                 &current_token_claims,
                 &current_ans_lookups,
+                &current_marketplace_listings
             )
         }) {
         Ok(_) => Ok(()),
@@ -148,6 +150,7 @@ fn insert_to_db(
                 let token_activities = clean_data_for_db(token_activities, true);
                 let current_token_claims = clean_data_for_db(current_token_claims, true);
                 let current_ans_lookups = clean_data_for_db(current_ans_lookups, true);
+                let current_marketplace_listings = clean_data_for_db(current_marketplace_listings, true);
 
                 insert_to_db_impl(
                     pg_conn,
@@ -160,6 +163,7 @@ fn insert_to_db(
                     &token_activities,
                     &current_token_claims,
                     &current_ans_lookups,
+                    &current_marketplace_listings
                 )
             }),
     }
@@ -178,11 +182,7 @@ fn insert_tokens(
             diesel::insert_into(schema::tokens::table)
                 .values(&tokens_to_insert[start_ind..end_ind])
                 .on_conflict((token_data_id_hash, property_version, transaction_version))
-                .do_update()
-                .set((
-                    collection_data_id_hash.eq(excluded(collection_data_id_hash)),
-                    inserted_at.eq(excluded(inserted_at)),
-                )),
+                .do_nothing(),
             None,
         )?;
     }
@@ -210,11 +210,7 @@ fn insert_token_ownerships(
                     transaction_version,
                     table_handle,
                 ))
-                .do_update()
-                .set((
-                    collection_data_id_hash.eq(excluded(collection_data_id_hash)),
-                    inserted_at.eq(excluded(inserted_at)),
-                )),
+                .do_nothing(),
             None,
         )?;
     }
@@ -235,10 +231,7 @@ fn insert_token_datas(
                 .values(&token_datas_to_insert[start_ind..end_ind])
                 .on_conflict((token_data_id_hash, transaction_version))
                 .do_update()
-                .set((
-                    collection_data_id_hash.eq(excluded(collection_data_id_hash)),
-                    inserted_at.eq(excluded(inserted_at)),
-                )),
+                .set((description.eq(excluded(description)),)),
             None,
         )?;
     }
@@ -292,7 +285,6 @@ fn insert_current_token_ownerships(
                     last_transaction_version.eq(excluded(last_transaction_version)),
                     collection_data_id_hash.eq(excluded(collection_data_id_hash)),
                     table_type.eq(excluded(table_type)),
-                    inserted_at.eq(excluded(inserted_at)),
                 )),
             Some(" WHERE current_token_ownerships.last_transaction_version <= excluded.last_transaction_version "),
         )?;
@@ -335,7 +327,6 @@ fn insert_current_token_datas(
                     last_transaction_version.eq(excluded(last_transaction_version)),
                     collection_data_id_hash.eq(excluded(collection_data_id_hash)),
                     description.eq(excluded(description)),
-                    inserted_at.eq(excluded(inserted_at)),
                 )),
             Some(" WHERE current_token_datas.last_transaction_version <= excluded.last_transaction_version "),
         )?;
@@ -370,7 +361,6 @@ fn insert_current_collection_datas(
                     description_mutable.eq(excluded(description_mutable)),
                     last_transaction_version.eq(excluded(last_transaction_version)),
                     table_handle.eq(excluded(table_handle)),
-                    inserted_at.eq(excluded(inserted_at)),
                 )),
             Some(" WHERE current_collection_datas.last_transaction_version <= excluded.last_transaction_version "),
         )?;
@@ -397,11 +387,7 @@ fn insert_token_activities(
                     event_creation_number,
                     event_sequence_number,
                 ))
-                .do_update()
-                .set((
-                    collection_data_id_hash.eq(excluded(collection_data_id_hash)),
-                    inserted_at.eq(excluded(inserted_at)),
-                )),
+                .do_nothing(),
             None,
         )?;
     }
@@ -435,7 +421,6 @@ fn insert_current_token_claims(
                     amount.eq(excluded(amount)),
                     table_handle.eq(excluded(table_handle)),
                     last_transaction_version.eq(excluded(last_transaction_version)),
-                    inserted_at.eq(excluded(inserted_at)),
                 )),
             Some(" WHERE current_token_pending_claims.last_transaction_version <= excluded.last_transaction_version "),
         )?;
@@ -462,10 +447,44 @@ fn insert_current_ans_lookups(
                     registered_address.eq(excluded(registered_address)),
                     expiration_timestamp.eq(excluded(expiration_timestamp)),
                     last_transaction_version.eq(excluded(last_transaction_version)),
-                    inserted_at.eq(excluded(inserted_at)),
                 )),
                 Some(" WHERE current_ans_lookup.last_transaction_version <= excluded.last_transaction_version "),
             )?;
+    }
+    Ok(())
+}
+
+fn insert_current_marketplace_listings(
+    conn: &mut PgConnection,
+    items_to_insert: &[CurrentMarketplaceListing],
+) -> Result<(), diesel::result::Error> {
+    use schema::current_marketplace_listings::dsl::*;
+
+    let chunks = get_chunks(
+        items_to_insert.len(),
+        CurrentMarketplaceListing::field_count(),
+    );
+
+    for (start_ind, end_ind) in chunks {
+        execute_with_better_error(
+            conn,
+            diesel::insert_into(schema::current_marketplace_listings::table)
+                .values(&items_to_insert[start_ind..end_ind])
+                .on_conflict(token_data_id_hash)
+                .do_update()
+                .set((
+                    property_version.eq(excluded(property_version)),
+                    creator_address.eq(excluded(creator_address)),
+                    collection_name.eq(excluded(collection_name)),
+                    name.eq(excluded(name)),
+                    seller.eq(excluded(seller)),
+                    amount.eq(excluded(amount)),
+                    price.eq(excluded(price)),
+                    event_type.eq(excluded(event_type)),
+                    inserted_at.eq(excluded(inserted_at)),
+                )),
+            None,
+        )?;
     }
     Ok(())
 }
@@ -483,11 +502,6 @@ impl TransactionProcessor for TokenTransactionProcessor {
         end_version: u64,
     ) -> Result<ProcessingResult, TransactionProcessingError> {
         let mut conn = self.get_conn();
-
-        // First get all token related table metadata from the batch of transactions. This is in case
-        // an earlier transaction has metadata (in resources) that's missing from a later transaction.
-        let table_handle_to_owner =
-            TableMetadataForToken::get_table_handle_to_owner_from_transactions(&transactions);
 
         let mut all_tokens = vec![];
         let mut all_token_ownerships = vec![];
@@ -510,6 +524,8 @@ impl TransactionProcessor for TokenTransactionProcessor {
         > = HashMap::new();
         let mut all_current_ans_lookups: HashMap<CurrentAnsLookupPK, CurrentAnsLookup> =
             HashMap::new();
+        let mut all_current_marketplace_listings: HashMap<TokenDataIdHash, CurrentMarketplaceListing> =
+            HashMap::new();
 
         for txn in transactions {
             let (
@@ -521,7 +537,7 @@ impl TransactionProcessor for TokenTransactionProcessor {
                 current_token_datas,
                 current_collection_datas,
                 current_token_claims,
-            ) = Token::from_transaction(&txn, &table_handle_to_owner, &mut conn);
+            ) = Token::from_transaction(&txn, &mut conn);
             all_tokens.append(&mut tokens);
             all_token_ownerships.append(&mut token_ownerships);
             all_token_datas.append(&mut token_datas);
@@ -542,6 +558,11 @@ impl TransactionProcessor for TokenTransactionProcessor {
             let current_ans_lookups =
                 CurrentAnsLookup::from_transaction(&txn, self.ans_contract_address.clone());
             all_current_ans_lookups.extend(current_ans_lookups);
+
+            // Marketplace listings
+            let current_marketplace_listings =
+                CurrentMarketplaceListing::from_transaction(&txn);
+            all_current_marketplace_listings.extend(current_marketplace_listings);
         }
 
         // Getting list of values and sorting by pk in order to avoid postgres deadlock since we're doing multi threaded db writes
@@ -590,6 +611,11 @@ impl TransactionProcessor for TokenTransactionProcessor {
         all_current_ans_lookups
             .sort_by(|a, b| a.domain.cmp(&b.domain).then(a.subdomain.cmp(&b.subdomain)));
 
+        let mut all_current_marketplace_listings = all_current_marketplace_listings
+            .into_values()
+            .collect::<Vec<CurrentMarketplaceListing>>();
+        all_current_marketplace_listings.sort_by(|a, b| a.token_data_id_hash.cmp(&b.token_data_id_hash));
+
         let tx_result = insert_to_db(
             &mut conn,
             self.name(),
@@ -609,6 +635,7 @@ impl TransactionProcessor for TokenTransactionProcessor {
             all_token_activities,
             all_current_token_claims,
             all_current_ans_lookups,
+            all_current_marketplace_listings
         );
         match tx_result {
             Ok(_) => Ok(ProcessingResult::new(

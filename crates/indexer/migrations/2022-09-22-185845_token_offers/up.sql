@@ -24,7 +24,7 @@ CREATE TABLE token_activities (
   creator_address VARCHAR(66) NOT NULL,
   collection_name VARCHAR(128) NOT NULL,
   name VARCHAR(128) NOT NULL,
-  transfer_type VARCHAR(50) NOT NULL,
+  transfer_type VARCHAR(150) NOT NULL,
   from_address VARCHAR(66),
   to_address VARCHAR(66),
   token_amount NUMERIC NOT NULL,
