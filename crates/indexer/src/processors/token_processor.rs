@@ -73,15 +73,15 @@ fn insert_to_db_impl(
     let (tokens, token_ownerships, token_datas, collection_datas) = basic_token_transaction_lists;
     let (current_token_ownerships, current_token_datas, current_collection_datas) =
         basic_token_current_lists;
-    insert_tokens(conn, tokens)?;
-    insert_token_datas(conn, token_datas)?;
-    insert_token_ownerships(conn, token_ownerships)?;
-    insert_collection_datas(conn, collection_datas)?;
+    // insert_tokens(conn, tokens)?;
+    // insert_token_datas(conn, token_datas)?;
+    // insert_token_ownerships(conn, token_ownerships)?;
+    // insert_collection_datas(conn, collection_datas)?;
     insert_current_token_ownerships(conn, current_token_ownerships)?;
     insert_current_token_datas(conn, current_token_datas)?;
     insert_current_collection_datas(conn, current_collection_datas)?;
     insert_token_activities(conn, token_activities)?;
-    insert_current_token_claims(conn, current_token_claims)?;
+    //insert_current_token_claims(conn, current_token_claims)?;
     insert_current_ans_lookups(conn, current_ans_lookups)?;
     insert_current_marketplace_listings(conn, all_current_marketplace_listings)?;
     Ok(())
