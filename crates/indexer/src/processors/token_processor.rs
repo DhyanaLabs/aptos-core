@@ -484,7 +484,7 @@ fn insert_current_marketplace_listings(
                     inserted_at.eq(excluded(inserted_at)),
                     last_transaction_version.eq(excluded(last_transaction_version)),
                 )),
-                Some(" WHERE current_ans_lookup.last_transaction_version <= excluded.last_transaction_version "),
+                Some(" WHERE current_marketplace_listings.last_transaction_version <= excluded.last_transaction_version "),
         )?;
     }
     Ok(())
