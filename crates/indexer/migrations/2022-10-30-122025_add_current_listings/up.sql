@@ -3,6 +3,7 @@
 CREATE TABLE current_marketplace_listings (
   -- sha256 of creator + collection_name + name
   token_data_id_hash VARCHAR(64) UNIQUE PRIMARY KEY NOT NULL,
+  collection_data_id_hash VARCHAR(64) NOT NULL,
   market_address VARCHAR(66) NOT NULL,
   property_version NUMERIC NOT NULL,
   creator_address VARCHAR(66) NOT NULL,
@@ -15,6 +16,7 @@ CREATE TABLE current_marketplace_listings (
   inserted_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 CREATE INDEX cml_tdih_pv_index ON current_marketplace_listings (token_data_id_hash, property_version);
+CREATE INDEX cml_cdih_index ON current_marketplace_listings (collection_data_id_hash);
 CREATE INDEX cml_insat_index ON current_marketplace_listings (inserted_at);
 CREATE INDEX cml_seller_index ON current_marketplace_listings (seller);
 CREATE INDEX cml_addr_coll_name_pv_index ON current_marketplace_listings (

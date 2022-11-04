@@ -24,6 +24,7 @@ use serde::{Deserialize, Serialize};
 ))]
 #[diesel(table_name = current_marketplace_listings)]
 pub struct CurrentMarketplaceListing {
+    pub collection_data_id_hash: String,
     pub market_address: String,
     pub token_data_id_hash: String,
     pub property_version: BigDecimal,
@@ -414,7 +415,7 @@ impl CurrentMarketplaceListing {
         {
             // market address is "0xd1fd99c1944b84d1670a2536417e997864ad12303d19eac725891691b04d614e" for blue/bluemove, "0x2c7bccf7b31baf770fdbcc768d9e9cb3d87805e255355df5db32ac9a669010a2" for topaz, and "0xf6994988bd40261af9431cd6dd3fcf765569719e66322c7a05cc78a89cd366d4" for souffl3
             let mut market_address = event_type.split("::").next().unwrap(); //
-            if !(event_type.contains("List") || event_type.contains("Auction")) || event_type.contains("CancelList") {
+            if !(event_type.contains("List") || event_type.contains("Auction")) || event_type.contains("CancelList") || event_type.contains("Delist") {
                 market_address = "";
             } 
             let token_data_id_hash = token_data_id.to_hash();
@@ -425,6 +426,7 @@ impl CurrentMarketplaceListing {
             let amount = token_activity_helper.token_amount.clone();
             let price = token_activity_helper.coin_amount.clone().unwrap_or(BigDecimal::zero());
             Some(Self {
+                collection_data_id_hash: token_data_id.get_collection_data_id_hash(),
                 market_address: market_address.to_owned(),
                 token_data_id_hash,
                 property_version: token_activity_helper.property_version.clone(),
