@@ -35,7 +35,7 @@ storage:
 
 indexer:
   enabled: true
-  postgres_uri: "postgres://postgres@localhost:5432/rift_indexer_v3"
+  postgres_uri: "postgres://postgres@localhost:5432/rift_indexer_v4"
   processor: "token_processor"
   check_chain_id: true
   emit_every: 500

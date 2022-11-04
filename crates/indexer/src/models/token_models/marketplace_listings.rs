@@ -36,6 +36,7 @@ pub struct CurrentMarketplaceListing {
     pub price: BigDecimal,
     pub event_type: String,
     pub inserted_at: chrono::NaiveDateTime,
+    pub last_transaction_version: i64,
 }
 
 /// A simplified TokenActivity (excluded common fields) to reduce code duplication
@@ -438,6 +439,7 @@ impl CurrentMarketplaceListing {
                 price,
                 event_type: event_type.to_owned(),
                 inserted_at: txn_timestamp,
+                last_transaction_version: txn_version
             })
         } else {
             None

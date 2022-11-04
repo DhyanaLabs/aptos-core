@@ -482,8 +482,9 @@ fn insert_current_marketplace_listings(
                     price.eq(excluded(price)),
                     event_type.eq(excluded(event_type)),
                     inserted_at.eq(excluded(inserted_at)),
+                    last_transaction_version.eq(excluded(last_transaction_version)),
                 )),
-            None,
+                Some(" WHERE current_ans_lookup.last_transaction_version <= excluded.last_transaction_version "),
         )?;
     }
     Ok(())

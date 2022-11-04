@@ -13,15 +13,11 @@ CREATE TABLE current_marketplace_listings (
   amount NUMERIC NOT NULL,
   price NUMERIC NOT NULL,
   event_type VARCHAR(150) NOT NULL,
-  inserted_at TIMESTAMP NOT NULL DEFAULT NOW()
+  inserted_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  last_transaction_version BIGINT NOT NULL
 );
 CREATE INDEX cml_tdih_pv_index ON current_marketplace_listings (token_data_id_hash, property_version);
 CREATE INDEX cml_cdih_index ON current_marketplace_listings (collection_data_id_hash);
 CREATE INDEX cml_insat_index ON current_marketplace_listings (inserted_at);
+CREATE INDEX cml_tv_index ON current_marketplace_listings (last_transaction_version);
 CREATE INDEX cml_seller_index ON current_marketplace_listings (seller);
-CREATE INDEX cml_addr_coll_name_pv_index ON current_marketplace_listings (
-  creator_address,
-  collection_name,
-  name,
-  property_version
-);

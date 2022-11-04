@@ -149,6 +149,7 @@ diesel::table! {
         price -> Numeric,
         event_type -> Varchar,
         inserted_at -> Timestamp,
+        last_transaction_version -> Int8,
     }
 }
 
