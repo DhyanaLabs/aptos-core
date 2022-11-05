@@ -119,6 +119,8 @@ impl CurrentMarketplaceListing {
             TokenEvent::Souffl3BuyTokenEvent(inner) => &inner.token_id.token_data_id,
             TokenEvent::Souffl3CancelListTokenEvent(inner) => &inner.token_id.token_data_id,
             TokenEvent::Souffl3ListTokenEvent(inner) => &inner.token_id.token_data_id,
+            TokenEvent::Souffl3TokenListEvent(inner) => &inner.token_id.token_data_id,
+            TokenEvent::Souffl3TokenSwapEvent(inner) => &inner.token_id.token_data_id,
             _ => &binding
         };
         let binding = match token_event {
@@ -402,6 +404,24 @@ impl CurrentMarketplaceListing {
                 coin_type: None,
                 coin_amount: Some(inner.coin_per_token.clone()),
             },
+            TokenEvent::Souffl3TokenListEvent(inner) => TokenActivityHelper {
+                token_data_id: &inner.token_id.token_data_id,
+                property_version: inner.token_id.property_version.clone(),
+                from_address: None,
+                to_address: None,
+                token_amount: inner.amount.clone(),
+                coin_type: Some(inner.coin_type_info.to_string()),
+                coin_amount: Some(inner.min_price.clone()),
+            },
+            TokenEvent::Souffl3TokenSwapEvent(inner) => TokenActivityHelper {
+                token_data_id: &inner.token_id.token_data_id,
+                property_version: inner.token_id.property_version.clone(),
+                from_address: None,
+                to_address: Some(inner.token_buyer.clone()),
+                token_amount: inner.token_amount.clone(),
+                coin_type: Some(inner.coin_type_info.to_string()),
+                coin_amount: Some(inner.coin_amount.clone()),
+            }
         };
         // only update listing info if event type contains "list", "delist", "buy", "sell", 'change', 'send', or 'claim', else return None
         if event_type.contains("List")

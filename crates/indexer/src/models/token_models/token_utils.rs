@@ -522,6 +522,30 @@ pub struct Souffl3ListTokenEventType {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Souffl3TokenSwapEventType {
+    pub token_id: TokenIdType,
+    pub token_buyer: String,
+    #[serde(deserialize_with = "deserialize_from_string")]
+    pub token_amount: BigDecimal,
+    #[serde(deserialize_with = "deserialize_from_string")]
+    pub coin_amount: BigDecimal,
+    pub coin_type_info: TypeInfo,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Souffl3TokenListEventType {
+    pub id: Souffl3MarketIdType,
+    pub token_id: TokenIdType,
+    #[serde(deserialize_with = "deserialize_from_string")]
+    pub amount: BigDecimal,
+    #[serde(deserialize_with = "deserialize_from_string")]
+    pub min_price: BigDecimal,
+    #[serde(deserialize_with = "deserialize_from_string")]
+    pub locked_until_secs: BigDecimal,
+    pub coin_type_info: TypeInfo,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Souffl3MarketIdType {
     pub market_address: String,
     pub name: String,
@@ -617,6 +641,8 @@ pub enum TokenEvent {
     Souffl3BuyTokenEvent(Souffl3BuyTokenEventType),
     Souffl3CancelListTokenEvent(Souffl3CancelListTokenEventType),
     Souffl3ListTokenEvent(Souffl3ListTokenEventType),
+    Souffl3TokenListEvent(Souffl3TokenListEventType),
+    Souffl3TokenSwapEvent(Souffl3TokenSwapEventType)
 }
 
 impl TokenEvent {
@@ -727,6 +753,14 @@ impl TokenEvent {
             "0xf6994988bd40261af9431cd6dd3fcf765569719e66322c7a05cc78a89cd366d4::FixedPriceMarket::ListTokenEvent" => {
                 serde_json::from_value(data.clone())
                     .map(|inner| Some(TokenEvent::Souffl3ListTokenEvent(inner)))
+            },
+            "0xf6994988bd40261af9431cd6dd3fcf765569719e66322c7a05cc78a89cd366d4::token_coin_swap::TokenListingEvent" => {
+                serde_json::from_value(data.clone())
+                    .map(|inner| Some(TokenEvent::Souffl3TokenListEvent(inner)))
+            },
+            "0xf6994988bd40261af9431cd6dd3fcf765569719e66322c7a05cc78a89cd366d4::token_coin_swap::TokenSwapEvent" => {
+                serde_json::from_value(data.clone())
+                    .map(|inner| Some(TokenEvent::Souffl3TokenSwapEvent(inner)))
             },
             _ => Ok(None),
         }

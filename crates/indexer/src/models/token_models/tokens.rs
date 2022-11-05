@@ -33,6 +33,7 @@ type Address = String;
 type TableType = String;
 pub type TableHandleToOwner = HashMap<TableHandle, TableMetadataForToken>;
 pub type TokenDataIdHash = String;
+pub type CollectionDataIdHash = String;
 // PK of current_token_ownerships, i.e. token_data_id_hash + property_version + owner_address, used to dedupe
 pub type CurrentTokenOwnershipPK = (TokenDataIdHash, BigDecimal, Address);
 // PK of current_token_pending_claims, i.e. token_data_id_hash + property_version + to/from_address, used to dedupe

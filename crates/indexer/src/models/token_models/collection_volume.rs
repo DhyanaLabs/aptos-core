@@ -1,3 +1,4 @@
+// Tracks collection and token volume (sum of the coin_amount's for a collection/token's buy/sell events)
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
@@ -5,9 +6,11 @@
 #![allow(clippy::extra_unused_lifetimes)]
 #![allow(clippy::unused_unit)]
 
+use std::collections::HashMap;
+
 use super::token_utils::{TokenDataIdType, TokenEvent};
 use crate::{
-    schema::token_activities,
+    schema::{current_collection_volumes},
     util::{parse_timestamp},
 };
 use aptos_api_types::{Event as APIEvent, Transaction as APITransaction};
@@ -17,33 +20,16 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, FieldCount, Identifiable, Insertable, Serialize)]
 #[diesel(primary_key(
-    transaction_version,
-    event_account_address,
-    event_creation_number,
-    event_sequence_number
+    collection_data_id_hash
 ))]
-#[diesel(table_name = token_activities)]
-pub struct TokenActivity {
-    pub transaction_version: i64,
-    pub event_account_address: String,
-    pub event_creation_number: i64,
-    pub event_sequence_number: i64,
-    pub token_data_id_hash: String,
-    pub property_version: BigDecimal,
-    pub creator_address: String,
-    pub collection_name: String,
-    pub name: String,
-    pub transfer_type: String,
-    pub from_address: Option<String>,
-    pub to_address: Option<String>,
-    pub token_amount: BigDecimal,
-    pub coin_type: Option<String>,
-    pub coin_amount: Option<BigDecimal>,
+#[diesel(table_name = current_collection_volumes)]
+pub struct CurrentCollectionVolume {
     pub collection_data_id_hash: String,
-    pub transaction_timestamp: chrono::NaiveDateTime,
+    pub volume: BigDecimal,
+    pub inserted_at: chrono::NaiveDateTime,
+    pub last_transaction_version: i64,
 }
 
-/// A simplified TokenActivity (excluded common fields) to reduce code duplication
 struct TokenActivityHelper<'a> {
     pub token_data_id: &'a TokenDataIdType,
     pub property_version: BigDecimal,
@@ -54,39 +40,78 @@ struct TokenActivityHelper<'a> {
     pub coin_amount: Option<BigDecimal>,
 }
 
-impl TokenActivity {
-    pub fn from_transaction(transaction: &APITransaction) -> Vec<Self> {
-        let mut token_activities = vec![];
+impl CurrentCollectionVolume {
+    pub fn from_transaction(transaction: &APITransaction) -> HashMap<String, Self> {
+        let mut current_collection_volumes: HashMap<String, Self> = HashMap::new();
         if let APITransaction::UserTransaction(user_txn) = transaction {
             for event in &user_txn.events {
                 let txn_version = user_txn.info.version.0 as i64;
                 let event_type = event.typ.to_string();
                 match TokenEvent::from_event(event_type.as_str(), &event.data, txn_version).unwrap()
                 {
-                    Some(token_event) => token_activities.push(Self::from_parsed_event(
-                        &event_type,
-                        event,
-                        &token_event,
-                        txn_version,
-                        parse_timestamp(user_txn.timestamp.0, txn_version),
-                    )),
-                    None => {}
+                    Some(token_event) => {
+                        let parsed_event = Self::from_parse_event(
+                            &event_type,
+                            event,
+                            &token_event,
+                            txn_version,
+                            parse_timestamp(user_txn.timestamp.0, txn_version),
+                        );
+                    if let Some(current_collection_volume) =  parsed_event {
+                        current_collection_volumes.insert(
+                            current_collection_volume.collection_data_id_hash.clone(), 
+                            current_collection_volume.into()
+                        )
+                        } else {
+                            None
+                        }
+                    }
+                    None => None
                 };
             }
         }
-        token_activities
+        current_collection_volumes
     }
 
-    pub fn from_parsed_event(
+    pub fn from_parse_event(
         event_type: &str,
         event: &APIEvent,
         token_event: &TokenEvent,
         txn_version: i64,
         txn_timestamp: chrono::NaiveDateTime,
-    ) -> Self {
+    ) -> Option<Self> {
         let event_account_address = &event.guid.account_address.to_string();
         let event_creation_number = event.guid.creation_number.0 as i64;
         let event_sequence_number = event.sequence_number.0 as i64;
+        let binding = TokenDataIdType {
+            creator: "".to_owned(),
+            collection: "".to_owned(),
+            name: "".to_owned(),
+        }.clone();
+        let token_data_id = match token_event {
+            TokenEvent::BlueMoveAuctionEvent(inner) => &inner.id.token_data_id,
+            TokenEvent::BlueBidEvent(inner) => &inner.id.token_data_id,
+            TokenEvent::BlueBuyEvent(inner) => &inner.id.token_data_id,
+            TokenEvent::BlueChangePriceEvent(inner) => &inner.id.token_data_id,
+            TokenEvent::BlueClaimCoinsEvent(inner) => &inner.id.token_data_id,
+            TokenEvent::BlueClaimTokenEvent(inner) => &inner.id.token_data_id,
+            TokenEvent::BlueDelistEvent(inner) => &inner.id.token_data_id,
+            TokenEvent::BlueListEvent(inner) => &inner.id.token_data_id,
+            TokenEvent::TopazBidEvent(inner) => &inner.token_id.token_data_id,
+            TokenEvent::TopazBuyEvent(inner) => &inner.token_id.token_data_id,
+            TokenEvent::TopazCancelBidEvent(inner) => &inner.token_id.token_data_id,
+            TokenEvent::TopazClaimEvent(inner) => &inner.token_id.token_data_id,
+            TokenEvent::TopazDelistEvent(inner) => &inner.token_id.token_data_id,
+            TokenEvent::TopazListEvent(inner) => &inner.token_id.token_data_id,
+            TokenEvent::TopazSellEvent(inner) => &inner.token_id.token_data_id,
+            TokenEvent::TopazSendEvent(inner) => &inner.token_id.token_data_id,
+            TokenEvent::Souffl3BuyTokenEvent(inner) => &inner.token_id.token_data_id,
+            TokenEvent::Souffl3CancelListTokenEvent(inner) => &inner.token_id.token_data_id,
+            TokenEvent::Souffl3ListTokenEvent(inner) => &inner.token_id.token_data_id,
+            TokenEvent::Souffl3TokenListEvent(inner) => &inner.token_id.token_data_id,
+            TokenEvent::Souffl3TokenSwapEvent(inner) => &inner.token_id.token_data_id,
+            _ => &binding
+        };
         let binding = match token_event {
             TokenEvent::TopazCancelCollectionBidEvent(inner) => 
                 TokenDataIdType {
@@ -387,25 +412,21 @@ impl TokenActivity {
                 coin_amount: Some(inner.coin_amount.clone()),
             }
         };
-        let token_data_id = token_activity_helper.token_data_id;
-        Self {
-            event_account_address: event_account_address.to_string(),
-            event_creation_number,
-            event_sequence_number,
-            token_data_id_hash: token_data_id.to_hash(),
-            property_version: token_activity_helper.property_version,
-            collection_data_id_hash: token_data_id.get_collection_data_id_hash(),
-            creator_address: token_data_id.get_creator_address(),
-            collection_name: token_data_id.get_collection_trunc(),
-            name: token_data_id.get_name_trunc(),
-            transaction_version: txn_version,
-            transfer_type: event_type.to_string(),
-            from_address: token_activity_helper.from_address,
-            to_address: token_activity_helper.to_address,
-            token_amount: token_activity_helper.token_amount,
-            coin_type: token_activity_helper.coin_type,
-            coin_amount: token_activity_helper.coin_amount,
-            transaction_timestamp: txn_timestamp,
+        // onlyadd to volume if event contains "buy" or "sell"
+        if event_type.contains("Buy")
+            || event_type.contains("Sell")
+            || event_type.contains("Swap")
+        {
+            let collection_data_id_hash = token_data_id.get_collection_data_id_hash();
+            let volume = token_activity_helper.coin_amount.clone().unwrap_or(BigDecimal::zero());
+            Some(Self {
+                collection_data_id_hash,
+                volume,
+                inserted_at: txn_timestamp,
+                last_transaction_version: txn_version,
+            })
+        } else {
+            None
         }
     }
 }

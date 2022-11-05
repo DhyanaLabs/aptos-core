@@ -136,6 +136,15 @@ diesel::table! {
 }
 
 diesel::table! {
+    current_collection_volumes (collection_data_id_hash) {
+        collection_data_id_hash -> Varchar,
+        volume -> Numeric,
+        inserted_at -> Timestamp,
+        last_transaction_version -> Int8,
+    }
+}
+
+diesel::table! {
     current_marketplace_listings (token_data_id_hash) {
         token_data_id_hash -> Varchar,
         collection_data_id_hash -> Varchar,
@@ -490,6 +499,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     current_ans_lookup,
     current_coin_balances,
     current_collection_datas,
+    current_collection_volumes,
     current_marketplace_listings,
     current_staking_pool_voter,
     current_token_datas,
