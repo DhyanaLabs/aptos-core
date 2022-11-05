@@ -534,7 +534,6 @@ pub struct Souffl3TokenSwapEventType {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Souffl3TokenListEventType {
-    pub id: Souffl3MarketIdType,
     pub token_id: TokenIdType,
     #[serde(deserialize_with = "deserialize_from_string")]
     pub amount: BigDecimal,

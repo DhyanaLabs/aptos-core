@@ -94,6 +94,15 @@ diesel::table! {
 }
 
 diesel::table! {
+    collection_volumes (collection_data_id_hash) {
+        collection_data_id_hash -> Varchar,
+        volume -> Numeric,
+        inserted_at -> Timestamp,
+        last_transaction_version -> Int8,
+    }
+}
+
+diesel::table! {
     current_ans_lookup (domain, subdomain) {
         domain -> Varchar,
         subdomain -> Varchar,
@@ -496,6 +505,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     coin_infos,
     coin_supply,
     collection_datas,
+    collection_volumes,
     current_ans_lookup,
     current_coin_balances,
     current_collection_datas,

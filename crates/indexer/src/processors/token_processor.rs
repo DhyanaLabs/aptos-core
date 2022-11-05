@@ -18,7 +18,7 @@ use crate::{
         token_ownerships::{CurrentTokenOwnership, TokenOwnership},
         tokens::{CurrentTokenOwnershipPK, CurrentTokenPendingClaimPK, Token, TokenDataIdHash, CollectionDataIdHash},
         marketplace_listings::{CurrentMarketplaceListing},
-        collection_volume::{CurrentCollectionVolume}
+        collection_volume::{CurrentCollectionVolume, CollectionVolume}
     },
     schema,
 };
@@ -70,7 +70,11 @@ fn insert_to_db_impl(
     current_token_claims: &[CurrentTokenPendingClaim],
     current_ans_lookups: &[CurrentAnsLookup],
     all_current_marketplace_listings: &[CurrentMarketplaceListing],
-    current_collection_volumes: &[CurrentCollectionVolume]
+    current_collection_volumes: &[CurrentCollectionVolume],
+    collection_volumes: &[CollectionVolume],
+    // current_daily_collection_volumes: &[CurrentDailyCollectionVolume],
+    // current_weekly_collection_volumes: &[CurrentWeeklyCollectionVolume],
+    // current_monthly_collection_volumes: &[CurrentMonthlyCollectionVolume],
 ) -> Result<(), diesel::result::Error> {
     let (tokens, token_ownerships, token_datas, collection_datas) = basic_token_transaction_lists;
     let (current_token_ownerships, current_token_datas, current_collection_datas) =
@@ -87,6 +91,7 @@ fn insert_to_db_impl(
     insert_current_ans_lookups(conn, current_ans_lookups)?;
     insert_current_marketplace_listings(conn, all_current_marketplace_listings)?;
     insert_current_collection_volumes(conn, current_collection_volumes)?;
+    insert_collection_volumes(conn, collection_volumes)?;
     Ok(())
 }
 
@@ -110,7 +115,11 @@ fn insert_to_db(
     current_token_claims: Vec<CurrentTokenPendingClaim>,
     current_ans_lookups: Vec<CurrentAnsLookup>,
     current_marketplace_listings: Vec<CurrentMarketplaceListing>,
-    current_collection_volumes: Vec<CurrentCollectionVolume>
+    current_collection_volumes: Vec<CurrentCollectionVolume>,
+    collection_volumes: Vec<CollectionVolume>,
+    // current_daily_collection_volumes: Vec<CurrentDailyCollectionVolume>,
+    // current_weekly_collection_volumes: Vec<CurrentWeeklyCollectionVolume>,
+    // current_monthly_collection_volumes: Vec<CurrentMonthlyCollectionVolume>,
 ) -> Result<(), diesel::result::Error> {
     aptos_logger::trace!(
         name = name,
@@ -138,6 +147,10 @@ fn insert_to_db(
                 &current_ans_lookups,
                 &current_marketplace_listings,
                 &current_collection_volumes,
+                &collection_volumes,
+                // &current_daily_collection_volumes,
+                // &current_weekly_collection_volumes,
+                // &current_monthly_collection_volumes
             )
         }) {
         Ok(_) => Ok(()),
@@ -157,6 +170,10 @@ fn insert_to_db(
                 let current_ans_lookups = clean_data_for_db(current_ans_lookups, true);
                 let current_marketplace_listings = clean_data_for_db(current_marketplace_listings, true);
                 let current_collection_volumes = clean_data_for_db(current_collection_volumes, true);
+                let collection_volumes = clean_data_for_db(collection_volumes, true);
+                // let current_daily_collection_volumes = clean_data_for_db(current_daily_collection_volumes, true);
+                // let current_weekly_collection_volumes = clean_data_for_db(current_weekly_collection_volumes, true);
+                // let current_monthly_collection_volumes = clean_data_for_db(current_monthly_collection_volumes, true);
 
                 insert_to_db_impl(
                     pg_conn,
@@ -170,7 +187,11 @@ fn insert_to_db(
                     &current_token_claims,
                     &current_ans_lookups,
                     &current_marketplace_listings,
-                    &current_collection_volumes
+                    &current_collection_volumes,
+                    &collection_volumes,
+                    // &current_daily_collection_volumes,
+                    // &current_weekly_collection_volumes,
+                    // &current_monthly_collection_volumes
                 )
             }),
     }
@@ -324,6 +345,30 @@ fn insert_current_collection_volumes(
                     last_transaction_version.eq(excluded(last_transaction_version)),
                 )),
                 Some(" WHERE current_collection_volumes.last_transaction_version <= excluded.last_transaction_version "),
+        )?;
+    }
+    Ok(())
+}
+
+fn insert_collection_volumes(
+    conn: &mut PgConnection,
+    items_to_insert: &[CollectionVolume],
+) -> Result<(), diesel::result::Error> {
+    use schema::collection_volumes::dsl::*;
+
+    let chunks = get_chunks(
+        items_to_insert.len(),
+        CollectionVolume::field_count(),
+    );
+
+    for (start_ind, end_ind) in chunks {
+        execute_with_better_error(
+            conn,
+            diesel::insert_into(schema::collection_volumes::table)
+                .values(&items_to_insert[start_ind..end_ind])
+                .on_conflict(collection_data_id_hash)
+                .do_nothing(),
+                None,
         )?;
     }
     Ok(())
@@ -546,6 +591,7 @@ impl TransactionProcessor for TokenTransactionProcessor {
         let mut all_token_datas = vec![];
         let mut all_collection_datas = vec![];
         let mut all_token_activities = vec![];
+        let mut all_collection_volumes = vec![];
 
         // Hashmap key will be the PK of the table, we do not want to send duplicates writes to the db within a batch
         let mut all_current_token_ownerships: HashMap<
@@ -566,6 +612,13 @@ impl TransactionProcessor for TokenTransactionProcessor {
             HashMap::new();
         let mut all_current_collection_volumes: HashMap<CollectionDataIdHash, CurrentCollectionVolume> =
             HashMap::new();
+        // let mut all_current_daily_collection_volumes: HashMap<CollectionDataIdHash, CurrentDailyCollectionVolume> =
+        //     HashMap::new();
+        // let mut all_current_weekly_collection_volumes: HashMap<CollectionDataIdHash, CurrentWeeklyCollectionVolume> =
+        //     HashMap::new();
+        // let mut all_current_monthly_collection_volumes: HashMap<CollectionDataIdHash, CurrentMonthlyCollectionVolume> =
+        //     HashMap::new();
+            
 
         for txn in transactions {
             let (
@@ -604,10 +657,14 @@ impl TransactionProcessor for TokenTransactionProcessor {
                 CurrentMarketplaceListing::from_transaction(&txn);
             all_current_marketplace_listings.extend(current_marketplace_listings);
 
-            // Collection volume (all-time)
-            let current_collection_volumes =
+            // Collection volume
+            let (current_collection_volumes, mut collection_volumes) =
                 CurrentCollectionVolume::from_transaction(&txn);
-                all_current_collection_volumes.extend(current_collection_volumes);
+            all_current_collection_volumes.extend(current_collection_volumes);
+            all_collection_volumes.append(&mut collection_volumes);
+            // all_current_daily_collection_volumes.extend(current_daily_collection_volumes);
+            // all_current_weekly_collection_volumes.extend(current_weekly_collection_volumes);
+            // all_current_monthly_collection_volumes.extend(current_monthly_collection_volumes);
         }
 
         // Getting list of values and sorting by pk in order to avoid postgres deadlock since we're doing multi threaded db writes
@@ -664,7 +721,19 @@ impl TransactionProcessor for TokenTransactionProcessor {
         let mut all_current_collection_volumes = all_current_collection_volumes
             .into_values()
             .collect::<Vec<CurrentCollectionVolume>>();
-        all_current_marketplace_listings.sort_by(|a, b| a.token_data_id_hash.cmp(&b.token_data_id_hash));
+        all_current_collection_volumes.sort_by(|a, b| a.collection_data_id_hash.cmp(&b.collection_data_id_hash));
+        // let mut all_current_daily_collection_volumes = all_current_daily_collection_volumes
+        //     .into_values()
+        //     .collect::<Vec<CurrentDailyCollectionVolume>>();
+        //     all_current_daily_collection_volumes.sort_by(|a, b| a.collection_data_id_hash.cmp(&b.collection_data_id_hash));
+        // let mut all_current_weekly_collection_volumes = all_current_weekly_collection_volumes
+        //     .into_values()
+        //     .collect::<Vec<CurrentWeeklyCollectionVolume>>();
+        //     all_current_weekly_collection_volumes.sort_by(|a, b| a.collection_data_id_hash.cmp(&b.collection_data_id_hash));
+        // let mut all_current_monthly_collection_volumes = all_current_monthly_collection_volumes
+        //     .into_values()
+        //     .collect::<Vec<CurrentMonthlyCollectionVolume>>();
+        //     all_current_monthly_collection_volumes.sort_by(|a, b| a.collection_data_id_hash.cmp(&b.collection_data_id_hash));
 
         let tx_result = insert_to_db(
             &mut conn,
@@ -686,7 +755,11 @@ impl TransactionProcessor for TokenTransactionProcessor {
             all_current_token_claims,
             all_current_ans_lookups,
             all_current_marketplace_listings,
-            all_current_collection_volumes
+            all_current_collection_volumes,
+            all_collection_volumes,
+            // all_current_daily_collection_volumes,
+            // all_current_weekly_collection_volumes,
+            // all_current_monthly_collection_volumes,
         );
         match tx_result {
             Ok(_) => Ok(ProcessingResult::new(

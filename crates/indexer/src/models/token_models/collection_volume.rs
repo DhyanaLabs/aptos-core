@@ -10,7 +10,7 @@ use std::collections::HashMap;
 
 use super::token_utils::{TokenDataIdType, TokenEvent};
 use crate::{
-    schema::{current_collection_volumes},
+    schema::{current_collection_volumes, collection_volumes},
     util::{parse_timestamp},
 };
 use aptos_api_types::{Event as APIEvent, Transaction as APITransaction};
@@ -30,6 +30,54 @@ pub struct CurrentCollectionVolume {
     pub last_transaction_version: i64,
 }
 
+#[derive(Debug, Deserialize, FieldCount, Identifiable, Insertable, Serialize)]
+#[diesel(primary_key(
+    collection_data_id_hash
+))]
+#[diesel(table_name = collection_volumes)]
+pub struct CollectionVolume {
+    pub collection_data_id_hash: String,
+    pub volume: BigDecimal,
+    pub inserted_at: chrono::NaiveDateTime,
+    pub last_transaction_version: i64,
+}
+
+// #[derive(Debug, Deserialize, FieldCount, Identifiable, Insertable, Serialize)]
+// #[diesel(primary_key(
+//     collection_data_id_hash
+// ))]
+// #[diesel(table_name = current_daily_collection_volumes)]
+// pub struct CurrentDailyCollectionVolume {
+//     pub collection_data_id_hash: String,
+//     pub volume: BigDecimal,
+//     pub inserted_at: chrono::NaiveDateTime,
+//     pub last_transaction_version: i64,
+// }
+
+// #[derive(Debug, Deserialize, FieldCount, Identifiable, Insertable, Serialize)]
+// #[diesel(primary_key(
+//     collection_data_id_hash
+// ))]
+// #[diesel(table_name = current_weekly_collection_volumes)]
+// pub struct CurrentWeeklyCollectionVolume {
+//     pub collection_data_id_hash: String,
+//     pub volume: BigDecimal,
+//     pub inserted_at: chrono::NaiveDateTime,
+//     pub last_transaction_version: i64,
+// }
+
+// #[derive(Debug, Deserialize, FieldCount, Identifiable, Insertable, Serialize)]
+// #[diesel(primary_key(
+//     collection_data_id_hash
+// ))]
+// #[diesel(table_name = current_monthly_collection_volumes)]
+// pub struct CurrentMonthlyCollectionVolume {
+//     pub collection_data_id_hash: String,
+//     pub volume: BigDecimal,
+//     pub inserted_at: chrono::NaiveDateTime,
+//     pub last_transaction_version: i64,
+// }
+
 struct TokenActivityHelper<'a> {
     pub token_data_id: &'a TokenDataIdType,
     pub property_version: BigDecimal,
@@ -41,8 +89,12 @@ struct TokenActivityHelper<'a> {
 }
 
 impl CurrentCollectionVolume {
-    pub fn from_transaction(transaction: &APITransaction) -> HashMap<String, Self> {
+    pub fn from_transaction(transaction: &APITransaction) -> (HashMap<String, Self>, Vec<CollectionVolume>) {
         let mut current_collection_volumes: HashMap<String, Self> = HashMap::new();
+        let mut collection_volumes = vec![];
+        // let mut current_daily_collection_volumes: HashMap<String, CurrentDailyCollectionVolume> = HashMap::new();
+        // let mut current_weekly_collection_volumes: HashMap<String, CurrentWeeklyCollectionVolume> = HashMap::new();
+        // let mut current_monthly_collection_volumes: HashMap<String, CurrentMonthlyCollectionVolume> = HashMap::new();
         if let APITransaction::UserTransaction(user_txn) = transaction {
             for event in &user_txn.events {
                 let txn_version = user_txn.info.version.0 as i64;
@@ -57,20 +109,33 @@ impl CurrentCollectionVolume {
                             txn_version,
                             parse_timestamp(user_txn.timestamp.0, txn_version),
                         );
-                    if let Some(current_collection_volume) =  parsed_event {
-                        current_collection_volumes.insert(
-                            current_collection_volume.collection_data_id_hash.clone(), 
-                            current_collection_volume.into()
-                        )
-                        } else {
-                            None
+                        if let Some((current_collection_volume, collection_volume)) = parsed_event {
+                            current_collection_volumes.insert(
+                                current_collection_volume.collection_data_id_hash.clone(),
+                                current_collection_volume,
+                            );
+                            collection_volumes.push(
+                                collection_volume
+                            );
+                            // current_daily_collection_volumes.insert(
+                            //     current_daily_collection_volume.collection_data_id_hash.clone(),
+                            //     current_daily_collection_volume,
+                            // );
+                            // current_weekly_collection_volumes.insert(
+                            //     current_weekly_collection_volume.collection_data_id_hash.clone(),
+                            //     current_weekly_collection_volume,
+                            // );
+                            // current_monthly_collection_volumes.insert(
+                            //     current_monthly_collection_volume.collection_data_id_hash.clone(),
+                            //     current_monthly_collection_volume,
+                            // );
                         }
                     }
-                    None => None
+                    None => {}
                 };
             }
         }
-        current_collection_volumes
+        (current_collection_volumes, collection_volumes)
     }
 
     pub fn from_parse_event(
@@ -79,7 +144,7 @@ impl CurrentCollectionVolume {
         token_event: &TokenEvent,
         txn_version: i64,
         txn_timestamp: chrono::NaiveDateTime,
-    ) -> Option<Self> {
+    ) -> Option<(Self, CollectionVolume)> {
         let event_account_address = &event.guid.account_address.to_string();
         let event_creation_number = event.guid.creation_number.0 as i64;
         let event_sequence_number = event.sequence_number.0 as i64;
@@ -419,12 +484,38 @@ impl CurrentCollectionVolume {
         {
             let collection_data_id_hash = token_data_id.get_collection_data_id_hash();
             let volume = token_activity_helper.coin_amount.clone().unwrap_or(BigDecimal::zero());
-            Some(Self {
-                collection_data_id_hash,
-                volume,
-                inserted_at: txn_timestamp,
-                last_transaction_version: txn_version,
-            })
+            Some((Self {
+                    collection_data_id_hash: collection_data_id_hash.clone(),
+                    volume: volume.clone(),
+                    inserted_at: txn_timestamp.clone(),
+                    last_transaction_version: txn_version.clone(),
+                },
+                CollectionVolume {
+                    collection_data_id_hash: collection_data_id_hash.clone(),
+                    volume: volume.clone(),
+                    inserted_at: txn_timestamp.clone(),
+                    last_transaction_version: txn_version.clone(),
+                },
+                // CurrentDailyCollectionVolume {
+                //     collection_data_id_hash: collection_data_id_hash.clone(),
+                //     volume: volume.clone(),
+                //     inserted_at: txn_timestamp.clone(),
+                //     last_transaction_version: txn_version.clone(),
+                // },
+                // CurrentWeeklyCollectionVolume {
+                //     collection_data_id_hash: collection_data_id_hash.clone(),
+                //     volume: volume.clone(),
+                //     inserted_at: txn_timestamp.clone(),
+                //     last_transaction_version: txn_version.clone(),
+                // },
+                // CurrentMonthlyCollectionVolume {
+                //     collection_data_id_hash: collection_data_id_hash.clone(),
+                //     volume: volume.clone(),
+                //     inserted_at: txn_timestamp.clone(),
+                //     last_transaction_version: txn_version.clone(),
+                // }
+            )
+        )
         } else {
             None
         }
