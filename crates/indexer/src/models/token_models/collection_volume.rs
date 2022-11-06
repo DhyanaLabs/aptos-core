@@ -530,13 +530,13 @@ impl CurrentCollectionVolume {
                     last_transaction_version: txn_version.clone(),
                 },
                 CurrentTokenVolume {
-                    token_data_id_hash: token_data_id.to_string().clone(),
+                    token_data_id_hash: token_data_id.to_hash().clone(),
                     volume: volume.clone(),
                     inserted_at: txn_timestamp.clone(),
                     last_transaction_version: txn_version.clone(),
                 },
                 TokenVolume {
-                    token_data_id_hash: token_data_id.to_string().clone(),
+                    token_data_id_hash: token_data_id.to_hash().clone(),
                     volume: volume.clone(),
                     inserted_at: txn_timestamp.clone(),
                     last_transaction_version: txn_version.clone(),
