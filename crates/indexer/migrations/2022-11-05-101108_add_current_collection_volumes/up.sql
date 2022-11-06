@@ -18,7 +18,7 @@ CREATE TABLE collection_volumes (
   -- Last transaction version of the data in this table.
   last_transaction_version BIGINT NOT NULL,
   -- Constraints
-  PRIMARY KEY (collection_data_id_hash)
+  PRIMARY KEY (last_transaction_version)
 );
 CREATE INDEX cv_index ON collection_volumes (last_transaction_version);
 -- Current token volumes
@@ -40,7 +40,7 @@ CREATE TABLE token_volumes (
   -- Last transaction version of the data in this table.
   last_transaction_version BIGINT NOT NULL,
   -- Constraints
-  PRIMARY KEY (token_data_id_hash)
+  PRIMARY KEY (last_transaction_version)
 );
 CREATE INDEX tv_index ON token_volumes (last_transaction_version);
 -- Current daily collection volumes

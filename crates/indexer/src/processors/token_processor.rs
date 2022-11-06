@@ -94,6 +94,8 @@ fn insert_to_db_impl(
     insert_current_marketplace_listings(conn, all_current_marketplace_listings)?;
     insert_current_collection_volumes(conn, current_collection_volumes)?;
     insert_collection_volumes(conn, collection_volumes)?;
+    insert_current_token_volumes(conn, current_token_volumes)?;
+    insert_token_volumes(conn, token_volumes)?;
     Ok(())
 }
 
@@ -376,7 +378,7 @@ fn insert_collection_volumes(
             conn,
             diesel::insert_into(schema::collection_volumes::table)
                 .values(&items_to_insert[start_ind..end_ind])
-                .on_conflict(collection_data_id_hash)
+                .on_conflict(last_transaction_version)
                 .do_nothing(),
                 None,
         )?;
@@ -430,7 +432,7 @@ fn insert_token_volumes(
             conn,
             diesel::insert_into(schema::token_volumes::table)
                 .values(&items_to_insert[start_ind..end_ind])
-                .on_conflict(token_data_id_hash)
+                .on_conflict(last_transaction_version)
                 .do_nothing(),
                 None,
         )?;
