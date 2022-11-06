@@ -244,6 +244,15 @@ diesel::table! {
 }
 
 diesel::table! {
+    current_token_volumes (token_data_id_hash) {
+        token_data_id_hash -> Varchar,
+        volume -> Numeric,
+        inserted_at -> Timestamp,
+        last_transaction_version -> Int8,
+    }
+}
+
+diesel::table! {
     events (account_address, creation_number, sequence_number) {
         sequence_number -> Int8,
         creation_number -> Int8,
@@ -432,6 +441,15 @@ diesel::table! {
 }
 
 diesel::table! {
+    token_volumes (token_data_id_hash) {
+        token_data_id_hash -> Varchar,
+        volume -> Numeric,
+        inserted_at -> Timestamp,
+        last_transaction_version -> Int8,
+    }
+}
+
+diesel::table! {
     tokens (token_data_id_hash, property_version, transaction_version) {
         token_data_id_hash -> Varchar,
         property_version -> Numeric,
@@ -515,6 +533,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     current_token_datas,
     current_token_ownerships,
     current_token_pending_claims,
+    current_token_volumes,
     events,
     indexer_status,
     ledger_infos,
@@ -528,6 +547,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     token_activities,
     token_datas,
     token_ownerships,
+    token_volumes,
     tokens,
     transactions,
     user_transactions,

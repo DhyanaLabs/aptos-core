@@ -18,7 +18,7 @@ use crate::{
         token_ownerships::{CurrentTokenOwnership, TokenOwnership},
         tokens::{CurrentTokenOwnershipPK, CurrentTokenPendingClaimPK, Token, TokenDataIdHash, CollectionDataIdHash},
         marketplace_listings::{CurrentMarketplaceListing},
-        collection_volume::{CurrentCollectionVolume, CollectionVolume}
+        collection_volume::{CurrentCollectionVolume, CollectionVolume, CurrentTokenVolume, TokenVolume}
     },
     schema,
 };
@@ -72,6 +72,8 @@ fn insert_to_db_impl(
     all_current_marketplace_listings: &[CurrentMarketplaceListing],
     current_collection_volumes: &[CurrentCollectionVolume],
     collection_volumes: &[CollectionVolume],
+    current_token_volumes: &[CurrentTokenVolume],
+    token_volumes: &[TokenVolume],
     // current_daily_collection_volumes: &[CurrentDailyCollectionVolume],
     // current_weekly_collection_volumes: &[CurrentWeeklyCollectionVolume],
     // current_monthly_collection_volumes: &[CurrentMonthlyCollectionVolume],
@@ -117,6 +119,8 @@ fn insert_to_db(
     current_marketplace_listings: Vec<CurrentMarketplaceListing>,
     current_collection_volumes: Vec<CurrentCollectionVolume>,
     collection_volumes: Vec<CollectionVolume>,
+    current_token_volumes: Vec<CurrentTokenVolume>,
+    token_volumes: Vec<TokenVolume>,
     // current_daily_collection_volumes: Vec<CurrentDailyCollectionVolume>,
     // current_weekly_collection_volumes: Vec<CurrentWeeklyCollectionVolume>,
     // current_monthly_collection_volumes: Vec<CurrentMonthlyCollectionVolume>,
@@ -148,6 +152,8 @@ fn insert_to_db(
                 &current_marketplace_listings,
                 &current_collection_volumes,
                 &collection_volumes,
+                &current_token_volumes,
+                &token_volumes,
                 // &current_daily_collection_volumes,
                 // &current_weekly_collection_volumes,
                 // &current_monthly_collection_volumes
@@ -171,6 +177,8 @@ fn insert_to_db(
                 let current_marketplace_listings = clean_data_for_db(current_marketplace_listings, true);
                 let current_collection_volumes = clean_data_for_db(current_collection_volumes, true);
                 let collection_volumes = clean_data_for_db(collection_volumes, true);
+                let current_token_volumes = clean_data_for_db(current_token_volumes, true);
+                let token_volumes = clean_data_for_db(token_volumes, true);
                 // let current_daily_collection_volumes = clean_data_for_db(current_daily_collection_volumes, true);
                 // let current_weekly_collection_volumes = clean_data_for_db(current_weekly_collection_volumes, true);
                 // let current_monthly_collection_volumes = clean_data_for_db(current_monthly_collection_volumes, true);
@@ -189,6 +197,8 @@ fn insert_to_db(
                     &current_marketplace_listings,
                     &current_collection_volumes,
                     &collection_volumes,
+                    &current_token_volumes,
+                    &token_volumes,
                     // &current_daily_collection_volumes,
                     // &current_weekly_collection_volumes,
                     // &current_monthly_collection_volumes
@@ -367,6 +377,60 @@ fn insert_collection_volumes(
             diesel::insert_into(schema::collection_volumes::table)
                 .values(&items_to_insert[start_ind..end_ind])
                 .on_conflict(collection_data_id_hash)
+                .do_nothing(),
+                None,
+        )?;
+    }
+    Ok(())
+}
+
+fn insert_current_token_volumes(
+    conn: &mut PgConnection,
+    items_to_insert: &[CurrentTokenVolume],
+) -> Result<(), diesel::result::Error> {
+    use schema::current_token_volumes::dsl::*;
+
+    let chunks = get_chunks(
+        items_to_insert.len(),
+        CurrentTokenVolume::field_count(),
+    );
+
+    for (start_ind, end_ind) in chunks {
+        execute_with_better_error(
+            conn,
+            diesel::insert_into(schema::current_token_volumes::table)
+                .values(&items_to_insert[start_ind..end_ind])
+                .on_conflict(token_data_id_hash)
+                .do_update()
+                .set((
+                    token_data_id_hash.eq(excluded(token_data_id_hash)),
+                    volume.eq(excluded(volume)),
+                    inserted_at.eq(excluded(inserted_at)),
+                    last_transaction_version.eq(excluded(last_transaction_version)),
+                )),
+                Some(" WHERE current_token_volumes.last_transaction_version <= excluded.last_transaction_version "),
+        )?;
+    }
+    Ok(())
+}
+
+fn insert_token_volumes(
+    conn: &mut PgConnection,
+    items_to_insert: &[TokenVolume],
+) -> Result<(), diesel::result::Error> {
+    use schema::token_volumes::dsl::*;
+
+    let chunks = get_chunks(
+        items_to_insert.len(),
+        TokenVolume::field_count(),
+    );
+
+    for (start_ind, end_ind) in chunks {
+        execute_with_better_error(
+            conn,
+            diesel::insert_into(schema::token_volumes::table)
+                .values(&items_to_insert[start_ind..end_ind])
+                .on_conflict(token_data_id_hash)
                 .do_nothing(),
                 None,
         )?;
@@ -592,6 +656,7 @@ impl TransactionProcessor for TokenTransactionProcessor {
         let mut all_collection_datas = vec![];
         let mut all_token_activities = vec![];
         let mut all_collection_volumes = vec![];
+        let mut all_token_volumes = vec![];
 
         // Hashmap key will be the PK of the table, we do not want to send duplicates writes to the db within a batch
         let mut all_current_token_ownerships: HashMap<
@@ -611,6 +676,8 @@ impl TransactionProcessor for TokenTransactionProcessor {
         let mut all_current_marketplace_listings: HashMap<TokenDataIdHash, CurrentMarketplaceListing> =
             HashMap::new();
         let mut all_current_collection_volumes: HashMap<CollectionDataIdHash, CurrentCollectionVolume> =
+            HashMap::new();
+        let mut all_current_token_volumes: HashMap<CollectionDataIdHash, CurrentTokenVolume> =
             HashMap::new();
         // let mut all_current_daily_collection_volumes: HashMap<CollectionDataIdHash, CurrentDailyCollectionVolume> =
         //     HashMap::new();
@@ -658,10 +725,12 @@ impl TransactionProcessor for TokenTransactionProcessor {
             all_current_marketplace_listings.extend(current_marketplace_listings);
 
             // Collection volume
-            let (current_collection_volumes, mut collection_volumes) =
+            let (current_collection_volumes, mut collection_volumes, current_token_volumes, mut token_volumes) =
                 CurrentCollectionVolume::from_transaction(&txn);
             all_current_collection_volumes.extend(current_collection_volumes);
             all_collection_volumes.append(&mut collection_volumes);
+            all_current_token_volumes.extend(current_token_volumes);
+            all_token_volumes.append(&mut token_volumes);
             // all_current_daily_collection_volumes.extend(current_daily_collection_volumes);
             // all_current_weekly_collection_volumes.extend(current_weekly_collection_volumes);
             // all_current_monthly_collection_volumes.extend(current_monthly_collection_volumes);
@@ -722,6 +791,11 @@ impl TransactionProcessor for TokenTransactionProcessor {
             .into_values()
             .collect::<Vec<CurrentCollectionVolume>>();
         all_current_collection_volumes.sort_by(|a, b| a.collection_data_id_hash.cmp(&b.collection_data_id_hash));
+
+        let mut all_current_token_volumes = all_current_token_volumes
+            .into_values()
+            .collect::<Vec<CurrentTokenVolume>>();
+        all_current_token_volumes.sort_by(|a, b| a.token_data_id_hash.cmp(&b.token_data_id_hash));
         // let mut all_current_daily_collection_volumes = all_current_daily_collection_volumes
         //     .into_values()
         //     .collect::<Vec<CurrentDailyCollectionVolume>>();
@@ -757,6 +831,8 @@ impl TransactionProcessor for TokenTransactionProcessor {
             all_current_marketplace_listings,
             all_current_collection_volumes,
             all_collection_volumes,
+            all_current_token_volumes,
+            all_token_volumes,
             // all_current_daily_collection_volumes,
             // all_current_weekly_collection_volumes,
             // all_current_monthly_collection_volumes,

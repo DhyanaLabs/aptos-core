@@ -10,7 +10,7 @@ use std::collections::HashMap;
 
 use super::token_utils::{TokenDataIdType, TokenEvent};
 use crate::{
-    schema::{current_collection_volumes, collection_volumes},
+    schema::{current_collection_volumes, collection_volumes, current_token_volumes, token_volumes},
     util::{parse_timestamp},
 };
 use aptos_api_types::{Event as APIEvent, Transaction as APITransaction};
@@ -37,6 +37,30 @@ pub struct CurrentCollectionVolume {
 #[diesel(table_name = collection_volumes)]
 pub struct CollectionVolume {
     pub collection_data_id_hash: String,
+    pub volume: BigDecimal,
+    pub inserted_at: chrono::NaiveDateTime,
+    pub last_transaction_version: i64,
+}
+
+#[derive(Debug, Deserialize, FieldCount, Identifiable, Insertable, Serialize)]
+#[diesel(primary_key(
+    token_data_id_hash
+))]
+#[diesel(table_name = current_token_volumes)]
+pub struct CurrentTokenVolume {
+    pub token_data_id_hash: String,
+    pub volume: BigDecimal,
+    pub inserted_at: chrono::NaiveDateTime,
+    pub last_transaction_version: i64,
+}
+
+#[derive(Debug, Deserialize, FieldCount, Identifiable, Insertable, Serialize)]
+#[diesel(primary_key(
+    token_data_id_hash
+))]
+#[diesel(table_name = token_volumes)]
+pub struct TokenVolume {
+    pub token_data_id_hash: String,
     pub volume: BigDecimal,
     pub inserted_at: chrono::NaiveDateTime,
     pub last_transaction_version: i64,
@@ -89,9 +113,11 @@ struct TokenActivityHelper<'a> {
 }
 
 impl CurrentCollectionVolume {
-    pub fn from_transaction(transaction: &APITransaction) -> (HashMap<String, Self>, Vec<CollectionVolume>) {
+    pub fn from_transaction(transaction: &APITransaction) -> (HashMap<String, Self>, Vec<CollectionVolume>, HashMap<String, CurrentTokenVolume>, Vec<TokenVolume>) {
         let mut current_collection_volumes: HashMap<String, Self> = HashMap::new();
+        let mut current_token_volumes: HashMap<String, CurrentTokenVolume> = HashMap::new();
         let mut collection_volumes = vec![];
+        let mut token_volumes = vec![];
         // let mut current_daily_collection_volumes: HashMap<String, CurrentDailyCollectionVolume> = HashMap::new();
         // let mut current_weekly_collection_volumes: HashMap<String, CurrentWeeklyCollectionVolume> = HashMap::new();
         // let mut current_monthly_collection_volumes: HashMap<String, CurrentMonthlyCollectionVolume> = HashMap::new();
@@ -109,13 +135,20 @@ impl CurrentCollectionVolume {
                             txn_version,
                             parse_timestamp(user_txn.timestamp.0, txn_version),
                         );
-                        if let Some((current_collection_volume, collection_volume)) = parsed_event {
+                        if let Some((current_collection_volume, collection_volume, current_token_volume, token_volume)) = parsed_event {
                             current_collection_volumes.insert(
                                 current_collection_volume.collection_data_id_hash.clone(),
                                 current_collection_volume,
                             );
                             collection_volumes.push(
                                 collection_volume
+                            );
+                            current_token_volumes.insert(
+                                current_token_volume.token_data_id_hash.clone(),
+                                current_token_volume,
+                            );
+                            token_volumes.push(
+                                token_volume
                             );
                             // current_daily_collection_volumes.insert(
                             //     current_daily_collection_volume.collection_data_id_hash.clone(),
@@ -135,7 +168,7 @@ impl CurrentCollectionVolume {
                 };
             }
         }
-        (current_collection_volumes, collection_volumes)
+        (current_collection_volumes, collection_volumes, current_token_volumes, token_volumes)
     }
 
     pub fn from_parse_event(
@@ -144,7 +177,7 @@ impl CurrentCollectionVolume {
         token_event: &TokenEvent,
         txn_version: i64,
         txn_timestamp: chrono::NaiveDateTime,
-    ) -> Option<(Self, CollectionVolume)> {
+    ) -> Option<(Self, CollectionVolume, CurrentTokenVolume, TokenVolume)> {
         let event_account_address = &event.guid.account_address.to_string();
         let event_creation_number = event.guid.creation_number.0 as i64;
         let event_sequence_number = event.sequence_number.0 as i64;
@@ -492,6 +525,18 @@ impl CurrentCollectionVolume {
                 },
                 CollectionVolume {
                     collection_data_id_hash: collection_data_id_hash.clone(),
+                    volume: volume.clone(),
+                    inserted_at: txn_timestamp.clone(),
+                    last_transaction_version: txn_version.clone(),
+                },
+                CurrentTokenVolume {
+                    token_data_id_hash: token_data_id.to_string().clone(),
+                    volume: volume.clone(),
+                    inserted_at: txn_timestamp.clone(),
+                    last_transaction_version: txn_version.clone(),
+                },
+                TokenVolume {
+                    token_data_id_hash: token_data_id.to_string().clone(),
                     volume: volume.clone(),
                     inserted_at: txn_timestamp.clone(),
                     last_transaction_version: txn_version.clone(),
