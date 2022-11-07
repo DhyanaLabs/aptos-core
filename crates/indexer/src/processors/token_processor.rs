@@ -352,7 +352,7 @@ fn insert_current_collection_volumes(
                 .do_update()
                 .set((
                     collection_data_id_hash.eq(excluded(collection_data_id_hash)),
-                    volume.eq(excluded(volume)),
+                    volume.eq(volume + excluded(volume)),
                     inserted_at.eq(excluded(inserted_at)),
                     last_transaction_version.eq(excluded(last_transaction_version)),
                 )),
@@ -406,7 +406,7 @@ fn insert_current_token_volumes(
                 .do_update()
                 .set((
                     token_data_id_hash.eq(excluded(token_data_id_hash)),
-                    volume.eq(excluded(volume)),
+                    volume.eq(volume + excluded(volume)),
                     inserted_at.eq(excluded(inserted_at)),
                     last_transaction_version.eq(excluded(last_transaction_version)),
                 )),

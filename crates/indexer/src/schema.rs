@@ -94,7 +94,7 @@ diesel::table! {
 }
 
 diesel::table! {
-    collection_volumes (collection_data_id_hash) {
+    collection_volumes (last_transaction_version) {
         collection_data_id_hash -> Varchar,
         volume -> Numeric,
         inserted_at -> Timestamp,
@@ -441,7 +441,7 @@ diesel::table! {
 }
 
 diesel::table! {
-    token_volumes (token_data_id_hash) {
+    token_volumes (last_transaction_version) {
         token_data_id_hash -> Varchar,
         volume -> Numeric,
         inserted_at -> Timestamp,
